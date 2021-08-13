@@ -5,12 +5,20 @@ const text = x => x.text()
 const head = x => x.slice(0, x.length - 1)
 const last = x => x[x.length - 1]
 
-function remote(f, ...args) {
-	return `(${f.toString()})(${args.map(JSON.stringify).join(', ')})`
+function walk_directory(dir) {
+	const xs = []
+	for (const name of fs.readdirSync(dir)) {
+		if (name[0] === '.') continue
+		const pathname = path.join(dir, name)
+		const stats = fs.statSync(pathname)
+		if (stats.isDirectory()) xs.push(...walk_directory(pathname))
+		else if (stats.isFile()) xs.push(pathname)
+	}
+	return xs
 }
 
-function walk_music_directory(dir) {
-	return Array.from(walk_directory(dir))
+function remote(f, ...args) {
+	return `(${f.toString()})(${args.map(JSON.stringify).join(', ')})`
 }
 
 function get(url) {
@@ -55,8 +63,7 @@ function make_music_tree(tree, prefix=[]) {
 
 async function main() {
 	CONF = await get('conf.json').then(JSON.parse)
-	console.log('>>>>>>>>>>', document.cookie)
-	let x = await post('/index.xhtml', remote(walk_music_directory, CONF.music))
+	let x = await post('/', remote(walk_directory, CONF.music))
 	x = JSON.parse(x)
 	x = x.map(x => x.slice(CONF.music.length + 1))
 	x = dirs_to_tree(x)
