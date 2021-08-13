@@ -5,6 +5,10 @@ const text = x => x.text()
 const head = x => x.slice(0, x.length - 1)
 const last = x => x[x.length - 1]
 
+const Songs = []
+const Directories = {}
+const Tags = {}
+
 function walk_directory(dir) {
 	const xs = []
 	for (const name of fs.readdirSync(dir)) {
@@ -52,8 +56,43 @@ function dirs_to_tree(x) {
 	}, {})
 }
 
-function make_music_tree(tree, prefix=[]) {
+function file_extension(x) {
+	const i = x.lastIndexOf('.')
+	if (i === -1) return null
+	else return x.slice(i+1)
+}
+
+function change_file_extension(x, to) {
+	const i = x.lastIndexOf('.')
+	if (i === -1) return x + to
+	else return x.slice(0, i+1) + to
+}
+
+function song_file_p(x) {
+	return ['opus', 'mp3', 'm4a', 'ogg', 'mka', 'flac', 'aac'].includes(file_extension(x))
+}
+
+function find_cover_art(dir, entry) {
+	return
+		dir[change_file_extension(entry, 'png') ||
+		dir[change_file_extension(entry, 'jpg') ||
+		dir['cover.png'] ||
+		dir['cover.jpg'] ||
+		null
+}
+
+function parse_music(tree, prefix=[]) {
 	for (const k in tree) {
+		if (v.constructor === String) {
+			if (song_file_p(v)) {
+				const x = {
+					pathname: v,
+					cover: find_cover_art(tree, k),
+				}
+				Directories[prefix.join('/')].add(x)
+			}
+		} else {
+		}
 		const v = tree[k]
 		if (v.constructor === Array)
 			music_tree(v, [...tags, k])
@@ -67,7 +106,7 @@ async function main() {
 	x = JSON.parse(x)
 	x = x.map(x => x.slice(CONF.music.length + 1))
 	x = dirs_to_tree(x)
-	x = make_music_tree(x)
+	x = parse_music(x)
 	console.log(x)
 }
 
