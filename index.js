@@ -27,6 +27,15 @@ function $(x) { return document.querySelector(x) }
 function $$(x) { return Array.from(document.querySelectorAll(x)) }
 function N(a) { return function(b) { return new a(b) } }
 
+function group(f, xs) {
+	return xs.reduce((xs, x) => {
+		const group = f(x)
+		if (xs[group] === undefined) xs[group] = []
+		xs[group].push(x)
+		return xs
+	}, {})
+}
+
 function E(tag, attrs=null, children=null) {
 	const elem = document.createElement(tag)
 	if (attrs)
@@ -143,18 +152,22 @@ async function main() {
 }
 
 function Root(elem) {
+	const tracks = new Conditional({
+		false: new Component(E('h1', null, 'no tracks...')),
+		true: new AlphabeticalList(Object.keys(Tracks).sort().map(N(TrackC))),
+	})
 	const tabs = new TabView({
-		'Tracks': new Component(E('h1', null, 'Hello, world!')),
+		'Tracks': tracks,
 		'Browse': new Component(E('h1', null, 'Goodbye, world!')),
 	})
 	elem.appendChild(tabs.element)
 	tabs.activate('Tracks')
+	tracks.activate(true)
 }
 
-class Component {
+class Emitter {
 	constructor(element=null) {
 		this.watchers = {}
-		this.element = element
 	}
 
 	emit(k, v) {
@@ -174,6 +187,14 @@ class Component {
 		x.on(e, v => this.emit(e, v))
 		return this
 	}
+}
+
+class Component extends Emitter {
+	constructor(element=null) {
+		super()
+		this.watchers = {}
+		this.element = element
+	}
 
 	hide() {
 		this.element.classList.add('hidden')
@@ -184,6 +205,54 @@ class Component {
 		this.element.classList.remove('hidden')
 		return this
 	}
+
+	remove() {
+		this.element.remove()
+		return this
+	}
+}
+
+class Conditional extends Component {
+	constructor(components) {
+		super()
+		this.active = null
+		this.components = components
+		this.element = E('div', null, Object.values(this.components).map(x => x.element))
+		for (const x of Object.values(this.components)) x.hide()
+	}
+
+	activate(component) {
+		if (this.active) this.active.hide()
+		this.active = this.components[component]
+		this.active.show()
+		this.emit('active', this.active)
+	}
+}
+
+class AlphabeticalList extends Component {
+	constructor(items) {
+		super()
+		const tree = group(x => first(x.toString()), items.sort((a,b) => a.toString() < b.toString() ? -1 : 1))
+		console.log(tree)
+		this.element = E('div',
+			{ class: 'alphabeticallist' },
+			Object.entries(tree).map(([k, v]) =>
+				E('section',
+					{ class: k },
+					[E('header', null, k), ...v]
+				)))
+	}
+}
+
+class TrackC extends Component {
+	constructor(trackname) {
+		super()
+		this.name = trackname
+		this.element = E('div', { class: 'track' }, this.name)
+		this.element.onclick = () => this.emit('click', this)
+	}
+
+	toString() { return this.name }
 }
 
 class TabView extends Component {
@@ -198,9 +267,12 @@ class TabView extends Component {
 	}
 
 	on_active(tab) {
-		if (this.active) this.active.hide()
-		this.active = this.tabs[tab.name].show()
-		return this.emit('active', this.active)
+		if (tab !== this.active) {
+			if (this.active) this.active.hide()
+			this.active = this.tabs[tab.name].show()
+			this.emit('active', this.active)
+		}
+		return this
 	}
 
 	activate(tabname) {
@@ -228,9 +300,13 @@ class TabBar extends Component {
 	}
 
 	on_active(tab) {
-		if (this.active) find(is(this.active), this.tabs).deactivate()
-		this.active = tab
-		return this.emit('active', this.active)
+		if (tab !== this.active) {
+			if (this.active)
+				find(is(this.active), this.tabs).deactivate()
+			this.active = tab
+			this.emit('active', this.active)
+		}
+		return this
 	}
 }
 
