@@ -1,1 +1,30 @@
-body { margin: 0; }
+:root {
+	--bg-colour: #EFE3D0;
+	--text-colour: rgba(0,0,0,0.9);
+	--inactive-text-colour: rgba(0,0,0,0.3);
+	--accent: #87A8A4;
+	--accent2: #986D8E;
+	--transparent: rgba(0,0,0,0);
+}
+html {
+	background: var(--bg-colour);
+	color: var(--text-colour);
+	font-family: sans-serif;
+}
+body { margin: 1em; }
+.hidden { display: none !important; }
+.tabbar {
+	font-size: 150%;
+	display: flex;
+	text-transform: lowercase;
+	margin-left: -0.4em;
+}
+.tab {
+	color: var(--inactive-text-colour);
+	padding: 0.5em;
+	transition: color 0.5s;
+	cursor: pointer;
+}
+.tab.active {
+	color: var(--text-colour);
+}
