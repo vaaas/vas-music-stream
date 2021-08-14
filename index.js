@@ -26,6 +26,7 @@ function text(x) { return x.text() }
 function $(x) { return document.querySelector(x) }
 function $$(x) { return Array.from(document.querySelectorAll(x)) }
 function N(a) { return function(b) { return new a(b) } }
+function elements(xs) { return xs.map(x => x.element) }
 
 function group(f, xs) {
 	return xs.reduce((xs, x) => {
@@ -217,7 +218,7 @@ class Conditional extends Component {
 		super()
 		this.active = null
 		this.components = components
-		this.element = E('div', null, Object.values(this.components).map(x => x.element))
+		this.element = E('div', null, elements(Object.values(this.components)))
 		for (const x of Object.values(this.components)) x.hide()
 	}
 
@@ -239,7 +240,7 @@ class AlphabeticalList extends Component {
 			Object.entries(tree).map(([k, v]) =>
 				E('section',
 					{ class: k },
-					[E('header', null, k), ...v]
+					[E('header', null, k), ...elements(v)]
 				)))
 	}
 }
@@ -248,7 +249,7 @@ class TrackC extends Component {
 	constructor(trackname) {
 		super()
 		this.name = trackname
-		this.element = E('div', { class: 'track' }, this.name)
+		this.element = E('div', { class: 'track' }, [this.name])
 		this.element.onclick = () => this.emit('click', this)
 	}
 
@@ -261,7 +262,7 @@ class TabView extends Component {
 		this.tabs = tabs
 		this.tabbar = new TabBar(Object.keys(this.tabs).map(N(Tab)))
 		for (const x of Object.values(this.tabs)) x.hide()
-		this.element = E('div', { class: 'tabview', }, [this.tabbar, ...Object.values(this.tabs)].map(x => x.element))
+		this.element = E('div', { class: 'tabview', }, elements([this.tabbar, ...Object.values(this.tabs)]))
 		this.tabbar.on('active', x => this.on_active(x))
 		this.active = null
 	}
@@ -284,7 +285,7 @@ class TabView extends Component {
 class TabBar extends Component {
 	constructor(tabs) {
 		super()
-		this.element = E('nav', { class: 'tabbar', }, tabs.map(x => x.element))
+		this.element = E('nav', { class: 'tabbar', }, elements(tabs))
 		this.tabs = tabs
 		for (const x of tabs) {
 			x.tabbar = this
