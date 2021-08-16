@@ -41,7 +41,15 @@ body { margin: 0.5rem; }
 	text-overflow: ellipsis;
 	cursor: pointer;
 	background-color: inherit;
-	border-radius: 0.25em;
-	transition: background-color var(--animation);
+	text-decoration: underline;
+	text-decoration-color: var(--transparent);
+	text-underline-offset: 0.5em;
+	transition: text-decoration-color var(--animation);
 }
-.track:hover { background-color: white; }
+.track:hover { text-decoration-color: var(--text-colour); }
+.player {
+	position: absolute;
+	bottom: 0;
+	left: 0;
+	width: 100%;
+}
