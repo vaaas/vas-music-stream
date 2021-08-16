@@ -1,7 +1,7 @@
 function TrackElement(trackname) {
 	const me = E('div', { class: 'track' }, [trackname])
 	me.name = trackname
-	me.onclick = () => me.emit('click', me)
+	me.onclick = () => me.emit('clicked', me)
 	return extend(Component.prototype, TrackElement.prototype, me)
 }
 TrackElement.prototype = {
