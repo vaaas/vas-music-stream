@@ -6,28 +6,33 @@ const Dirs = {}
 const SONG_EXTENSIONS = new Set(['opus', 'mp3', 'm4a', 'ogg', 'mka', 'flac', 'aac'])
 const COVER_EXTENSIONS = [ 'png', 'jpg', 'jpeg' ]
 
-function last(x) { return x[x.length-1] }
-function first(x) { return x[0] }
-function head(x) { return x.slice(0, x.length - 1) }
-function tail(x) { return x.slice(1) }
-function change_file_extension(x, to) { return without_extension(x) + to }
-function remote(f, ...args) { return `(${f.toString()})(${args.map(JSON.stringify).join(', ')})` }
-function song_file_p(x) { return SONG_EXTENSIONS.has(file_extension(x)) }
-function cover_file_p(x) { return some(is(x), combine(['cover'], COVER_EXTENSIONS)) }
-function get(url) { return fetch(url).then(text) }
-function post(url, body, headers={}) { return fetch(url, { method: 'POST', body, headers }).then(text) }
+const last = x => x[x.length-1]
+const first = x => x[0]
+const head = x => x.slice(0, x.length - 1)
+const tail = x => x.slice(1)
+const change_file_extension = (x, to) => without_extension(x) + to
+const remote = (f, ...args) => `(${f.toString()})(${args.map(JSON.stringify).join(', ')})`
+const song_file_p = x => SONG_EXTENSIONS.has(file_extension(x))
+const cover_file_p = x => some(is(x), combine(['cover'], COVER_EXTENSIONS))
+const get = x => fetch(x).then(text)
+const post = (url, body, headers={}) => fetch(url, { method: 'POST', body, headers }).then(text)
 function find(f, xs) { for (const x of xs) if (f(x)) return x ; return null }
+function find_index(f, xs) { let i = 0 ; for (const x of xs) if (f(x)) return i ; return null }
 function some(f, xs) { for (const x of xs) if (f(x)) return true ; return false }
 function every(f, xs) { for (const x of xs) if (!f(x)) return false ; return true }
 function file_extension(x) { const i = x.lastIndexOf('.') ; return i === -1 ? null : x.slice(i+1) }
 function without_extension(x) { const i = x.lastIndexOf('.') ; return i === -1 ? x : x.slice(0, i) }
-function is(a) { return function(b) { return a === b } }
-function text(x) { return x.text() }
-function $(x) { return document.querySelector(x) }
-function $$(x) { return Array.from(document.querySelectorAll(x)) }
-function N(a) { return function(b) { return new a(b) } }
-function sort(f, xs) { return xs.sort((a, b) => f(a) < f(b) ? -1 : 1) }
-function alphabetically(x) { return x.toString() }
+const is = a => b => a === b
+const text = x => x.text()
+const $ = x => document.querySelector(x)
+const $$ = x => Array.from(document.querySelectorAll(x))
+const N = a => b => new a(b)
+const sort = (f, xs) => xs.sort((a, b) => f(a) < f(b) ? -1 : 1)
+const alphabetically = x => x.toString()
+const even = x => (x % 2) === 0
+const odd = x => !even(x)
+const evens = x => x.filter((x, i) => even(i))
+const odds = x => x.filter((x, i) => odd(i))
 
 function extend(...xs) {
 	const target = last(xs)
@@ -164,12 +169,12 @@ function Root(elem) {
 		false: Component(E('h1', null, 'no tracks...')),
 		true: AlphabeticalList(Object.keys(Tracks).sort().map(N(TrackElement))),
 	})
-	const tabs = new TabView({
-		'Tracks': tracks,
-		'Browse': Component(E('h1', null, 'Goodbye, world!')),
-	})
+	const tabs = new TabView(
+		Tab('Tracks'), tracks,
+		Tab('Browse'), Component(E('h1', null, 'Goodbye, world!')),
+	)
 	elem.appendChild(tabs)
-	tabs.activate(tracks)
+	tabs.activate('Tracks')
 	tracks.activate(true)
 	return extend(Component.prototype, elem)
 }
@@ -233,28 +238,35 @@ TrackElement.prototype = {
 	toString() { return this.name },
 }
 
-function TabView(tabs) {
-	const tabbar = TabBar(Object.keys(tabs).map(Tab))
-	const me = E('div', { class: 'tabview', }, [tabbar, ...Object.values(tabs)])
+function TabView(...xs) {
+	const tabs = evens(xs)
+	const views = odds(xs)
+	for (let i = 0; i < tabs.length; i++) tabs[i].view = views[i]
+	for (const x of views) x.hide()
+	const tabbar = TabBar(tabs)
+	const me = E('div', { class: 'tabview', }, [tabbar, ...views])
 	me.tabbar = tabbar
-	me.tabs = tabs
-	for (const x of Object.values(me.tabs)) x.hide()
-	me.tabbar.on('active', x => me.on_active(x))
+	tabbar.on('active', x => me.on_active(x))
 	me.active = null
 	return extend(Component.prototype, TabView.prototype, me)
 }
 TabView.prototype = {
 	on_active(tab) {
 		if (tab !== this.active) {
-			if (this.active) this.active.hide()
-			this.active = this.tabs[tab.name].show()
-			this.emit('active', this.active)
+			if (this.active) this.active.view.hide()
+			this.active = tab
+			this.active.view.show()
+			this.emit('active', tab)
 		}
 		return this
 	},
 
 	activate(tab) {
-		this.tabbar.activate(tab)
+		let target
+		if (tab.constructor === String)
+			target = find(x => x.name === tab, this.tabbar.childNodes)
+		else target = tab
+		target.activate()
 		return this
 	}
 }
