@@ -26,7 +26,16 @@ function text(x) { return x.text() }
 function $(x) { return document.querySelector(x) }
 function $$(x) { return Array.from(document.querySelectorAll(x)) }
 function N(a) { return function(b) { return new a(b) } }
-function elements(xs) { return xs.map(x => x.element) }
+function sort(f, xs) { return xs.sort((a, b) => f(a) < f(b) ? -1 : 1) }
+function alphabetically(x) { return x.toString() }
+
+function extend(...xs) {
+	const target = last(xs)
+	for (const x of head(xs))
+		for (const [k, v] of Object.entries(x))
+			target[k] = v
+	return target
+}
 
 function group(f, xs) {
 	return xs.reduce((xs, x) => {
@@ -147,126 +156,94 @@ async function main() {
 	x = x.map(x => x.slice(CONF.music.length + 1))
 	x = dirs_to_tree(x)
 	x = parse_music(x)
-	console.log(Dirs, Tracks)
-
 	Root(document.body)
 }
 
 function Root(elem) {
-	const tracks = new Conditional({
-		false: new Component(E('h1', null, 'no tracks...')),
-		true: new AlphabeticalList(Object.keys(Tracks).sort().map(N(TrackC))),
+	const tracks = Conditional({
+		false: Component(E('h1', null, 'no tracks...')),
+		true: AlphabeticalList(Object.keys(Tracks).sort().map(N(TrackElement))),
 	})
 	const tabs = new TabView({
 		'Tracks': tracks,
-		'Browse': new Component(E('h1', null, 'Goodbye, world!')),
+		'Browse': Component(E('h1', null, 'Goodbye, world!')),
 	})
-	elem.appendChild(tabs.element)
-	tabs.activate('Tracks')
+	elem.appendChild(tabs)
+	tabs.activate(tracks)
 	tracks.activate(true)
+	return extend(Component.prototype, elem)
 }
 
-class Emitter {
-	constructor(element=null) {
-		this.watchers = {}
-	}
-
+function Component(element) {
+	return extend(Component.prototype, element)
+}
+Component.prototype = {
 	emit(k, v) {
-		const fs = this.watchers[k]
-		if (fs) for (const f of fs) f(v)
-		return this
-	}
-
+		const event = new CustomEvent(k, { detail: v })
+		this.dispatchEvent(event)
+	},
 	on(e, f) {
-		let fs = this.watchers[e]
-		if (!fs) this.watchers[e] = fs = []
-		fs.push(f)
+		this.addEventListener(e, x => f(x.detail))
 		return this
-	}
-
-	echo(x, e) {
-		x.on(e, v => this.emit(e, v))
-		return this
-	}
-}
-
-class Component extends Emitter {
-	constructor(element=null) {
-		super()
-		this.watchers = {}
-		this.element = element
-	}
-
+	},
 	hide() {
-		this.element.classList.add('hidden')
+		this.classList.add('hidden')
 		return this
-	}
-
+	},
 	show() {
-		this.element.classList.remove('hidden')
+		this.classList.remove('hidden')
 		return this
-	}
-
-	remove() {
-		this.element.remove()
-		return this
-	}
+	},
 }
 
-class Conditional extends Component {
-	constructor(components) {
-		super()
-		this.active = null
-		this.components = components
-		this.element = E('div', null, elements(Object.values(this.components)))
-		for (const x of Object.values(this.components)) x.hide()
-	}
-
-	activate(component) {
+function Conditional(elements) {
+	const me = E('div', null, Object.values(elements))
+	me.active = null
+	me.elements = elements
+	for (const x of Object.values(elements)) x.hide()
+	return extend(Component.prototype, Conditional.prototype, me)
+}
+Conditional.prototype = {
+	activate(name) {
 		if (this.active) this.active.hide()
-		this.active = this.components[component]
+		this.active = this.elements[name]
 		this.active.show()
 		this.emit('active', this.active)
-	}
+	},
 }
 
-class AlphabeticalList extends Component {
-	constructor(items) {
-		super()
-		const tree = group(x => first(x.toString()), items.sort((a,b) => a.toString() < b.toString() ? -1 : 1))
-		console.log(tree)
-		this.element = E('div',
-			{ class: 'alphabeticallist' },
-			Object.entries(tree).map(([k, v]) =>
-				E('section',
-					{ class: k },
-					[E('header', null, k), ...elements(v)]
-				)))
-	}
+function AlphabeticalList(items) {
+	const tree = group(x => first(x.toString()), sort(alphabetically, items))
+	return extend(Component.prototype, E('div',
+		{ class: 'alphabeticallist' },
+		Object.entries(tree).map(([k, v]) =>
+			E('section',
+				{ class: k },
+				[E('header', null, k), ...v]
+			))))
 }
 
-class TrackC extends Component {
-	constructor(trackname) {
-		super()
-		this.name = trackname
-		this.element = E('div', { class: 'track' }, [this.name])
-		this.element.onclick = () => this.emit('click', this)
-	}
-
-	toString() { return this.name }
+function TrackElement(trackname) {
+	const me = E('div', { class: 'track' }, [trackname])
+	me.name = trackname
+	me.onclick = () => me.emit('click', me)
+	return extend(Component.prototype, TrackElement.prototype, me)
+}
+TrackElement.prototype = {
+	toString() { return this.name },
 }
 
-class TabView extends Component {
-	constructor(tabs) {
-		super()
-		this.tabs = tabs
-		this.tabbar = new TabBar(Object.keys(this.tabs).map(N(Tab)))
-		for (const x of Object.values(this.tabs)) x.hide()
-		this.element = E('div', { class: 'tabview', }, elements([this.tabbar, ...Object.values(this.tabs)]))
-		this.tabbar.on('active', x => this.on_active(x))
-		this.active = null
-	}
-
+function TabView(tabs) {
+	const tabbar = TabBar(Object.keys(tabs).map(Tab))
+	const me = E('div', { class: 'tabview', }, [tabbar, ...Object.values(tabs)])
+	me.tabbar = tabbar
+	me.tabs = tabs
+	for (const x of Object.values(me.tabs)) x.hide()
+	me.tabbar.on('active', x => me.on_active(x))
+	me.active = null
+	return extend(Component.prototype, TabView.prototype, me)
+}
+TabView.prototype = {
 	on_active(tab) {
 		if (tab !== this.active) {
 			if (this.active) this.active.hide()
@@ -274,63 +251,56 @@ class TabView extends Component {
 			this.emit('active', this.active)
 		}
 		return this
-	}
+	},
 
-	activate(tabname) {
-		this.tabbar.activate(tabname)
+	activate(tab) {
+		this.tabbar.activate(tab)
 		return this
 	}
 }
 
-class TabBar extends Component {
-	constructor(tabs) {
-		super()
-		this.element = E('nav', { class: 'tabbar', }, elements(tabs))
-		this.tabs = tabs
-		for (const x of tabs) {
-			x.tabbar = this
-			x.on('active', v => { if (v) this.on_active(x) })
-		}
-		this.active = null
-	}
-
-	activate(tabname) {
-		const tab = find(x => x.name === tabname, this.tabs)
-		if (tab) tab.activate()
+function TabBar(tabs) {
+	const me = E('nav', { class: 'tabbar', }, tabs)
+	me.tabs = tabs
+	for (const x of tabs)
+		x.on('active', v => { if (v) me.on_active(x) })
+	me.active = null
+	return extend(Component.prototype, TabBar.prototype, me)
+}
+TabBar.prototype = {
+	activate(tab) {
+		tab.activate()
 		return this
-	}
+	},
 
 	on_active(tab) {
 		if (tab !== this.active) {
-			if (this.active)
-				find(is(this.active), this.tabs).deactivate()
+			if (this.active) this.active.deactivate()
 			this.active = tab
 			this.emit('active', this.active)
 		}
 		return this
-	}
+	},
 }
 
-class Tab extends Component {
-	constructor(name) {
-		super()
-		this.name = name
-		this.element = E('div', {
-			class: 'tab',
-			on: {
-				'click': () => this.activate()
-			},
-		}, [name])
-		this.tabbar = null
-	}
-
+function Tab(name) {
+	const me = E('div', {
+		class: 'tab',
+		on: {
+			'click': () => me.activate()
+		},
+	}, [name])
+	me.name = name
+	return extend(Component.prototype, Tab.prototype, me)
+}
+Tab.prototype = {
 	activate() {
-		this.element.classList.add('active')
+		this.classList.add('active')
 		return this.emit('active', true)
-	}
+	},
 
 	deactivate() {
-		this.element.classList.remove('active')
+		this.classList.remove('active')
 		return this.emit('active', false)
 	}
 }
