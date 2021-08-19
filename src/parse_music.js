@@ -1,6 +1,6 @@
 function parse_music(tree, prefix=[]) {
 	const dirname = prefix.join('/') || '/'
-	let dir = Dirs[dirname]
+	let dir = V.Dirs[dirname]
 	if (dir === undefined) {
 		dir = {
 			pathname: dirname,
@@ -9,7 +9,7 @@ function parse_music(tree, prefix=[]) {
 			cover: null,
 			parent: null,
 		}
-		Dirs[dirname] = dir
+		V.Dirs[dirname] = dir
 	}
 	for (const k in tree) {
 		const v = tree[k]
@@ -22,7 +22,7 @@ function parse_music(tree, prefix=[]) {
 					tags: prefix,
 				}
 				dir.tracks.add(x)
-				Tracks[v] = x
+				V.Tracks.add(x)
 			} else if (cover_file_p(k)) dir.cover = v
 		} else {
 			const pathname = [...prefix, k].join('/')
@@ -33,7 +33,7 @@ function parse_music(tree, prefix=[]) {
 				cover: null,
 				parent: dir,
 			}
-			Dirs[pathname] = x
+			V.Dirs[pathname] = x
 			dir.dirs.add(x)
 			parse_music(v, [...prefix, k])
 		}

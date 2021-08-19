@@ -10,9 +10,12 @@ function Root(elem) {
 	const tabs = new TabView(
 		Tab('Tracks'), tracks,
 		Tab('Browse'), Component(E('h1', null, 'Goodbye, world!')),
+        Tab('Upload'), new UploadComponent(),
 	)
 	tabs.activate('Tracks')
-	tracks.activate(true)
+    tracks.activate(V.Tracks.size() > 0)
+    V.Tracks.on('add', () => tracks.activate(V.Tracks.size() > 0))
+    V.Tracks.on('delete', () => tracks.activate(V.Tracks.size() > 0))
 
 	elem.appendChild(tabs)
 	elem.appendChild(player)
